@@ -6,12 +6,18 @@ import { join as joinPaths } from "path";
 const pathToDtsLint = require.resolve("dtslint");
 
 if (module.parent === null) { // tslint:disable-line no-null-keyword
+	let clone = false;
 	let onlyLint = false;
 	let nProcesses = 8; // tslint:disable-line no-magic-numbers
 	const { argv } = process;
 	for (let i = 2; i < argv.length; i++) {
 		const arg = argv[i];
 		switch (arg) {
+			case "--clone": {
+				clone = true;
+				break;
+			}
+
 			case "--onlyLint": {
 				onlyLint = true;
 				break;
@@ -28,7 +34,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 		}
 	}
 
-	main(nProcesses, onlyLint)
+	main(clone, nProcesses, onlyLint)
 		.then(code => {
 			if (code !== 0) {
 				console.error("FAILED");
@@ -38,13 +44,17 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 		.catch(err => { console.error(err); });
 }
 
-async function main(nProcesses: number, onlyLint: boolean): Promise<number> {
-	/*const installError = await run(/*cwd* / undefined, pathToDtsLint, "--installAll");
+async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Promise<number> {
+	if (clone) {
+		await cloneDt(process.cwd());
+	}
+
+	const installError = await run(/*cwd*/ undefined, pathToDtsLint, "--installAll");
 	if (installError !== undefined) {
 		return 1;
-	}*/
+	}
 
-	const dtDir = joinPaths(process.cwd(), "..", "DefinitelyTyped");
+	const dtDir = joinPaths(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
 	if (!(await pathExists(dtDir))) {
 		throw new Error("Should be run in a directory next to DefinitelyTyped");
 	}
@@ -70,6 +80,25 @@ async function main(nProcesses: number, onlyLint: boolean): Promise<number> {
 
 	console.error(`Failing packages: ${errors.map(e => e.name).join(", ")}`);
 	return 1;
+}
+
+function cloneDt(cwd: string): Promise<void> {
+	const cmd = "git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1";
+	console.log(cmd);
+	return new Promise((resolve, reject) => {
+		exec(cmd, { encoding: "utf8", cwd }, (error, stdout, stderr) => {
+			stdout = stdout.trim();
+			stderr = stderr.trim();
+			if (stdout != "") console.log(stdout);
+			if (stderr != "") console.error(stderr);
+			if (error) {
+				reject(error);
+			}
+			else {
+				resolve();
+			}
+		})
+	});
 }
 
 const exclude = new Set<string>([
