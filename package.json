@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "build": "tsc",
-    "run-clone": "node ./bin/src --clone",
+    "run-clone": "node ./bin/index.js --clone",
     "lint": "tslint --project tsconfig.json --format stylish"
   },
   "license": "MIT",

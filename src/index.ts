@@ -1,6 +1,7 @@
 import assert = require("assert");
 import { exec } from "child_process";
-import { pathExists, readdir } from "fs-extra";
+import { remove, pathExists, readdir } from "fs-extra";
+import { cpus } from "os";
 import { join as joinPaths } from "path";
 
 const pathToDtsLint = require.resolve("dtslint");
@@ -8,7 +9,7 @@ const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) { // tslint:disable-line no-null-keyword
 	let clone = false;
 	let onlyLint = false;
-	let nProcesses = 8; // tslint:disable-line no-magic-numbers
+	let nProcesses = cpus().length;
 	const { argv } = process;
 	for (let i = 2; i < argv.length; i++) {
 		const arg = argv[i];
@@ -46,6 +47,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 
 async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Promise<number> {
 	if (clone) {
+		await remove(joinPaths(process.cwd(), "DefinitelyTyped"));
 		await cloneDt(process.cwd());
 	}
 
