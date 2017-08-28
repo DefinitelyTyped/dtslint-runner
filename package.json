@@ -4,18 +4,18 @@
   "description": "",
   "scripts": {
     "build": "tsc",
-    "run-clone": "node ./bin/src --clone",
+    "run-clone": "node ./bin/index.js --clone",
     "lint": "tslint --project tsconfig.json --format stylish"
   },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^8.0.24",
     "@types/fs-extra": "^4.0.0",
+    "tslint": "^5.6.0",
     "typescript": "next"
   },
   "dependencies": {
-    "dtslint": "latest",
-    "fs-extra": "^4.0.1",
-    "tslint": "^5.6.0"
+    "dtslint": "github:Microsoft/dtslint#production",
+    "fs-extra": "^4.0.1"
   }
 }
