@@ -1,6 +1,6 @@
 import assert = require("assert");
 import { exec } from "child_process";
-import { remove, pathExists, readdir } from "fs-extra";
+import { pathExists, readdir, remove } from "fs-extra";
 import { cpus } from "os";
 import { join as joinPaths } from "path";
 
@@ -9,7 +9,7 @@ const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) { // tslint:disable-line no-null-keyword
 	let clone = false;
 	let onlyLint = false;
-	let nProcesses = cpus().length / 2;
+	let nProcesses = cpus().length;
 	const { argv } = process;
 	for (let i = 2; i < argv.length; i++) {
 		const arg = argv[i];
@@ -42,7 +42,10 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 			}
 			process.exit(code);
 		})
-		.catch(err => { console.error(err.stack); });
+		.catch(err => {
+			console.error((err as Error).stack);
+			process.exit(1);
+		});
 }
 
 async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Promise<number> {
@@ -51,11 +54,7 @@ async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Prom
 		await cloneDt(process.cwd());
 	}
 
-	const installError = await run(/*cwd*/ undefined, pathToDtsLint, "--installAll");
-	if (installError !== undefined) {
-		console.error(installError);
-		return 1;
-	}
+	await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
 
 	const dtDir = joinPaths(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
 	if (!(await pathExists(dtDir))) {
@@ -64,12 +63,14 @@ async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Prom
 
 	const allPackages = await getAllPackages(dtDir);
 
+	await installAllDependencies(nProcesses, allPackages.map(p => p.path));
+
 	const packageToErrors = await nAtATime(nProcesses, allPackages, async ({ name, path }) => {
 		console.log(name);
 		return { name, error: await testPackage(path, onlyLint) };
 	});
 	const errors = packageToErrors.filter(({ error }) => error !== undefined) as
-		Array<{ name: string, error: string }>;
+		ReadonlyArray<{ name: string, error: string }>;
 
 	if (errors.length === 0) {
 		console.log("No errors");
@@ -85,23 +86,26 @@ async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Prom
 	return 1;
 }
 
+/**
+ * Install all `package.json` dependencies up-front.
+ * This ensures that if `types/aaa` depends on `types/zzz`, `types/zzz`'s dependencies will already be installed.
+ */
+async function installAllDependencies(nProcesses: number, packagePaths: ReadonlyArray<string>): Promise<void> {
+	await nAtATime(nProcesses, packagePaths, async packagePath => {
+		if (!await pathExists(joinPaths(packagePath, "package.json"))) {
+			return;
+		}
+
+		const cmd = "npm install --ignore-scripts --no-shrinkwrap --no-package-lock --no-bin-links";
+		console.log(`  ${packagePath}: ${cmd}`);
+		await runOrFail(packagePath, cmd);
+	});
+}
+
 function cloneDt(cwd: string): Promise<void> {
 	const cmd = "git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1";
 	console.log(cmd);
-	return new Promise((resolve, reject) => {
-		exec(cmd, { encoding: "utf8", cwd }, (error, stdout, stderr) => {
-			stdout = stdout.trim();
-			stderr = stderr.trim();
-			if (stdout != "") console.log(stdout);
-			if (stderr != "") console.error(stderr);
-			if (error) {
-				reject(error);
-			}
-			else {
-				resolve();
-			}
-		})
-	});
+	return runOrFail(cwd, cmd);
 }
 
 const exclude = new Set<string>([
@@ -161,7 +165,7 @@ const exclude = new Set<string>([
 	"ej.web.all",
 ]);
 
-async function getAllPackages(dtDir: string): Promise<Array<{ name: string, path: string }>> {
+async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: string, path: string }>> {
 	const typesDir = joinPaths(dtDir, "types");
 	const packageNames = await readdir(typesDir);
 	const results = await nAtATime(1, packageNames, async packageName => {
@@ -178,7 +182,7 @@ async function getAllPackages(dtDir: string): Promise<Array<{ name: string, path
 		}
 		return packages;
 	});
-	return ([] as Array<{ name: string, path: string }>).concat(...results);
+	return ([] as ReadonlyArray<{ name: string, path: string }>).concat(...results);
 }
 
 async function testPackage(packagePath: string, onlyLint: boolean): Promise<string | undefined> {
@@ -186,16 +190,22 @@ async function testPackage(packagePath: string, onlyLint: boolean): Promise<stri
 	if (onlyLint && !shouldLint) {
 		return undefined;
 	}
-	const args = shouldLint ? [] : ["--noLint"];
-	return await run(packagePath, pathToDtsLint, ...args);
+	const args = shouldLint ? "" : " --noLint";
+	return await run(packagePath, `node ${pathToDtsLint}${args}`);
 }
 
-function run(cwd: string | undefined, cmd: string, ...args: string[]): Promise<string | undefined> {
-	const nodeCmd = `node ${cmd} ${args.join(" ")}`;
+async function runOrFail(cwd: string | undefined, cmd: string): Promise<void> {
+	const err = await run(cwd, cmd);
+	if (err !== undefined) {
+		throw new Error(err);
+	}
+}
+
+function run(cwd: string | undefined, cmd: string): Promise<string | undefined> {
 	return new Promise<string | undefined>(resolve => {
-		exec(nodeCmd, { encoding: "utf8", cwd }, (error, stdout, stderr) => {
-			stdout = stdout.trim();
-			stderr = stderr.trim();
+		exec(cmd, { encoding: "utf8", cwd }, (error, stdoutUntrimmed, stderrUntrimmed) => {
+			const stdout = stdoutUntrimmed.trim();
+			const stderr = stderrUntrimmed.trim();
 			if (stdout !== "") {
 				console.log(stdout);
 			}
@@ -204,11 +214,7 @@ function run(cwd: string | undefined, cmd: string, ...args: string[]): Promise<s
 			}
 			// tslint:disable-next-line no-null-keyword strict-type-predicates
 			if (error === null) {
-				if (stderr !== "") {
-					resolve(`${stdout}\n${stderr}`);
-				} else {
-					resolve(undefined);
-				}
+				resolve(undefined);
 			} else {
 				resolve(`${error.message}\n${stdout}\n${stderr}`);
 			}
