@@ -169,15 +169,16 @@ async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: stri
 	const typesDir = joinPaths(dtDir, "types");
 	const packageNames = await readdir(typesDir);
 	const results = await nAtATime(1, packageNames, async packageName => {
+		if (exclude.has(packageName)) {
+			return [];
+		}
 		const packageDir = joinPaths(typesDir, packageName);
 		const files = await readdir(packageDir);
 		const packages = [{ name: packageName, path: packageDir }];
 		for (const file of files) {
 			if (/^v\d+$/.test(file)) {
 				const name = `${packageName}/${file}`;
-				if (!exclude.has(name)) {
-					packages.push({ name, path: joinPaths(packageDir, file) });
-				}
+				packages.push({ name, path: joinPaths(packageDir, file) });
 			}
 		}
 		return packages;
