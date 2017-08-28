@@ -3,15 +3,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const child_process_1 = require("child_process");
 const fs_extra_1 = require("fs-extra");
+const os_1 = require("os");
 const path_1 = require("path");
 const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) {
+    let clone = false;
     let onlyLint = false;
-    let nProcesses = 8; // tslint:disable-line no-magic-numbers
+    let nProcesses = os_1.cpus().length / 2;
     const { argv } = process;
     for (let i = 2; i < argv.length; i++) {
         const arg = argv[i];
         switch (arg) {
+            case "--clone": {
+                clone = true;
+                break;
+            }
             case "--onlyLint": {
                 onlyLint = true;
                 break;
@@ -27,21 +33,26 @@ if (module.parent === null) {
                 throw new Error(`Unexpected arg ${arg}`);
         }
     }
-    main(nProcesses, onlyLint)
+    main(clone, nProcesses, onlyLint)
         .then(code => {
         if (code !== 0) {
             console.error("FAILED");
         }
         process.exit(code);
     })
-        .catch(err => { console.error(err); });
+        .catch(err => { console.error(err.stack); });
 }
-async function main(nProcesses, onlyLint) {
-    /*const installError = await run(/*cwd* / undefined, pathToDtsLint, "--installAll");
+async function main(clone, nProcesses, onlyLint) {
+    if (clone) {
+        await fs_extra_1.remove(path_1.join(process.cwd(), "DefinitelyTyped"));
+        await cloneDt(process.cwd());
+    }
+    const installError = await run(/*cwd*/ undefined, pathToDtsLint, "--installAll");
     if (installError !== undefined) {
+        console.error(installError);
         return 1;
-    }*/
-    const dtDir = path_1.join(process.cwd(), "..", "DefinitelyTyped");
+    }
+    const dtDir = path_1.join(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
     if (!(await fs_extra_1.pathExists(dtDir))) {
         throw new Error("Should be run in a directory next to DefinitelyTyped");
     }
@@ -61,6 +72,26 @@ async function main(nProcesses, onlyLint) {
     }
     console.error(`Failing packages: ${errors.map(e => e.name).join(", ")}`);
     return 1;
+}
+function cloneDt(cwd) {
+    const cmd = "git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1";
+    console.log(cmd);
+    return new Promise((resolve, reject) => {
+        child_process_1.exec(cmd, { encoding: "utf8", cwd }, (error, stdout, stderr) => {
+            stdout = stdout.trim();
+            stderr = stderr.trim();
+            if (stdout != "")
+                console.log(stdout);
+            if (stderr != "")
+                console.error(stderr);
+            if (error) {
+                reject(error);
+            }
+            else {
+                resolve();
+            }
+        });
+    });
 }
 const exclude = new Set([
     "webrtc",
