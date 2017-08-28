@@ -9,7 +9,7 @@ const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) {
     let clone = false;
     let onlyLint = false;
-    let nProcesses = os_1.cpus().length / 2;
+    let nProcesses = os_1.cpus().length;
     const { argv } = process;
     for (let i = 2; i < argv.length; i++) {
         const arg = argv[i];
@@ -40,23 +40,23 @@ if (module.parent === null) {
         }
         process.exit(code);
     })
-        .catch(err => { console.error(err.stack); });
+        .catch(err => {
+        console.error(err.stack);
+        process.exit(1);
+    });
 }
 async function main(clone, nProcesses, onlyLint) {
     if (clone) {
         await fs_extra_1.remove(path_1.join(process.cwd(), "DefinitelyTyped"));
         await cloneDt(process.cwd());
     }
-    const installError = await run(/*cwd*/ undefined, pathToDtsLint, "--installAll");
-    if (installError !== undefined) {
-        console.error(installError);
-        return 1;
-    }
+    await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
     const dtDir = path_1.join(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
     if (!(await fs_extra_1.pathExists(dtDir))) {
         throw new Error("Should be run in a directory next to DefinitelyTyped");
     }
     const allPackages = await getAllPackages(dtDir);
+    await installAllDependencies(nProcesses, allPackages.map(p => p.path));
     const packageToErrors = await nAtATime(nProcesses, allPackages, async ({ name, path }) => {
         console.log(name);
         return { name, error: await testPackage(path, onlyLint) };
@@ -73,25 +73,24 @@ async function main(clone, nProcesses, onlyLint) {
     console.error(`Failing packages: ${errors.map(e => e.name).join(", ")}`);
     return 1;
 }
+/**
+ * Install all `package.json` dependencies up-front.
+ * This ensures that if `types/aaa` depends on `types/zzz`, `types/zzz`'s dependencies will already be installed.
+ */
+async function installAllDependencies(nProcesses, packagePaths) {
+    await nAtATime(nProcesses, packagePaths, async (packagePath) => {
+        if (!await fs_extra_1.pathExists(path_1.join(packagePath, "package.json"))) {
+            return;
+        }
+        const cmd = "npm install --ignore-scripts --no-shrinkwrap --no-package-lock --no-bin-links";
+        console.log(`  ${packagePath}: ${cmd}`);
+        await runOrFail(packagePath, cmd);
+    });
+}
 function cloneDt(cwd) {
     const cmd = "git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1";
     console.log(cmd);
-    return new Promise((resolve, reject) => {
-        child_process_1.exec(cmd, { encoding: "utf8", cwd }, (error, stdout, stderr) => {
-            stdout = stdout.trim();
-            stderr = stderr.trim();
-            if (stdout != "")
-                console.log(stdout);
-            if (stderr != "")
-                console.error(stderr);
-            if (error) {
-                reject(error);
-            }
-            else {
-                resolve();
-            }
-        });
-    });
+    return runOrFail(cwd, cmd);
 }
 const exclude = new Set([
     "webrtc",
@@ -169,15 +168,20 @@ async function testPackage(packagePath, onlyLint) {
     if (onlyLint && !shouldLint) {
         return undefined;
     }
-    const args = shouldLint ? [] : ["--noLint"];
-    return await run(packagePath, pathToDtsLint, ...args);
+    const args = shouldLint ? "" : " --noLint";
+    return await run(packagePath, `node ${pathToDtsLint}${args}`);
 }
-function run(cwd, cmd, ...args) {
-    const nodeCmd = `node ${cmd} ${args.join(" ")}`;
+async function runOrFail(cwd, cmd) {
+    const err = await run(cwd, cmd);
+    if (err !== undefined) {
+        throw new Error(err);
+    }
+}
+function run(cwd, cmd) {
     return new Promise(resolve => {
-        child_process_1.exec(nodeCmd, { encoding: "utf8", cwd }, (error, stdout, stderr) => {
-            stdout = stdout.trim();
-            stderr = stderr.trim();
+        child_process_1.exec(cmd, { encoding: "utf8", cwd }, (error, stdoutUntrimmed, stderrUntrimmed) => {
+            const stdout = stdoutUntrimmed.trim();
+            const stderr = stderrUntrimmed.trim();
             if (stdout !== "") {
                 console.log(stdout);
             }
@@ -186,12 +190,7 @@ function run(cwd, cmd, ...args) {
             }
             // tslint:disable-next-line no-null-keyword strict-type-predicates
             if (error === null) {
-                if (stderr !== "") {
-                    resolve(`${stdout}\n${stderr}`);
-                }
-                else {
-                    resolve(undefined);
-                }
+                resolve(undefined);
             }
             else {
                 resolve(`${error.message}\n${stdout}\n${stderr}`);
