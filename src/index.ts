@@ -9,7 +9,7 @@ const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) { // tslint:disable-line no-null-keyword
 	let clone = false;
 	let onlyLint = false;
-	let nProcesses = cpus().length;
+	let nProcesses = cpus().length / 2;
 	const { argv } = process;
 	for (let i = 2; i < argv.length; i++) {
 		const arg = argv[i];
@@ -42,7 +42,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 			}
 			process.exit(code);
 		})
-		.catch(err => { console.error(err); });
+		.catch(err => { console.error(err.stack); });
 }
 
 async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Promise<number> {
@@ -53,6 +53,7 @@ async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Prom
 
 	const installError = await run(/*cwd*/ undefined, pathToDtsLint, "--installAll");
 	if (installError !== undefined) {
+		console.error(installError);
 		return 1;
 	}
 
