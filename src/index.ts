@@ -9,6 +9,7 @@ const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) { // tslint:disable-line no-null-keyword
 	let clone = false;
 	let onlyLint = false;
+	let noInstall = false;
 	let nProcesses = cpus().length;
 	const { argv } = process;
 	for (let i = 2; i < argv.length; i++) {
@@ -16,6 +17,11 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 		switch (arg) {
 			case "--clone": {
 				clone = true;
+				break;
+			}
+
+			case "--noInstall": {
+				noInstall = true;
 				break;
 			}
 
@@ -35,7 +41,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 		}
 	}
 
-	main(clone, nProcesses, onlyLint)
+	main(clone, nProcesses, noInstall, onlyLint)
 		.then(code => {
 			if (code !== 0) {
 				console.error("FAILED");
@@ -48,13 +54,15 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 		});
 }
 
-async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Promise<number> {
-	if (clone) {
+async function main(clone: boolean, nProcesses: number, noInstall: boolean, onlyLint: boolean): Promise<number> {
+	if (clone && !noInstall) {
 		await remove(joinPaths(process.cwd(), "DefinitelyTyped"));
 		await cloneDt(process.cwd());
 	}
 
-	await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
+	if (!noInstall) {
+		await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
+	}
 
 	const dtDir = joinPaths(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
 	if (!(await pathExists(dtDir))) {
@@ -63,7 +71,9 @@ async function main(clone: boolean, nProcesses: number, onlyLint: boolean): Prom
 
 	const allPackages = await getAllPackages(dtDir);
 
-	await installAllDependencies(nProcesses, allPackages.map(p => p.path));
+	if (!noInstall) {
+		await installAllDependencies(nProcesses, allPackages.map(p => p.path));
+	}
 
 	const packageToErrors = await nAtATime(nProcesses, allPackages, async ({ name, path }) => {
 		console.log(name);
