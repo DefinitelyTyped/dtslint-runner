@@ -9,6 +9,7 @@ const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) {
     let clone = false;
     let onlyLint = false;
+    let noInstall = false;
     let nProcesses = os_1.cpus().length;
     const { argv } = process;
     for (let i = 2; i < argv.length; i++) {
@@ -16,6 +17,10 @@ if (module.parent === null) {
         switch (arg) {
             case "--clone": {
                 clone = true;
+                break;
+            }
+            case "--noInstall": {
+                noInstall = true;
                 break;
             }
             case "--onlyLint": {
@@ -33,7 +38,7 @@ if (module.parent === null) {
                 throw new Error(`Unexpected arg ${arg}`);
         }
     }
-    main(clone, nProcesses, onlyLint)
+    main(clone, nProcesses, noInstall, onlyLint)
         .then(code => {
         if (code !== 0) {
             console.error("FAILED");
@@ -45,18 +50,22 @@ if (module.parent === null) {
         process.exit(1);
     });
 }
-async function main(clone, nProcesses, onlyLint) {
-    if (clone) {
+async function main(clone, nProcesses, noInstall, onlyLint) {
+    if (clone && !noInstall) {
         await fs_extra_1.remove(path_1.join(process.cwd(), "DefinitelyTyped"));
         await cloneDt(process.cwd());
     }
-    await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
+    if (!noInstall) {
+        await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
+    }
     const dtDir = path_1.join(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
     if (!(await fs_extra_1.pathExists(dtDir))) {
         throw new Error("Should be run in a directory next to DefinitelyTyped");
     }
     const allPackages = await getAllPackages(dtDir);
-    await installAllDependencies(nProcesses, allPackages.map(p => p.path));
+    if (!noInstall) {
+        await installAllDependencies(nProcesses, allPackages.map(p => p.path));
+    }
     const packageToErrors = await nAtATime(nProcesses, allPackages, async ({ name, path }) => {
         console.log(name);
         return { name, error: await testPackage(path, onlyLint) };
@@ -148,15 +157,16 @@ async function getAllPackages(dtDir) {
     const typesDir = path_1.join(dtDir, "types");
     const packageNames = await fs_extra_1.readdir(typesDir);
     const results = await nAtATime(1, packageNames, async (packageName) => {
+        if (exclude.has(packageName)) {
+            return [];
+        }
         const packageDir = path_1.join(typesDir, packageName);
         const files = await fs_extra_1.readdir(packageDir);
         const packages = [{ name: packageName, path: packageDir }];
         for (const file of files) {
             if (/^v\d+$/.test(file)) {
                 const name = `${packageName}/${file}`;
-                if (!exclude.has(name)) {
-                    packages.push({ name, path: path_1.join(packageDir, file) });
-                }
+                packages.push({ name, path: path_1.join(packageDir, file) });
             }
         }
         return packages;
