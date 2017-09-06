@@ -136,6 +136,10 @@ const exclude = new Set<string>([
 	"kendo-ui",
 	"i18next/v2",
 
+	// https://github.com/Microsoft/TSJS-lib-generator/issues/289
+	"chocolatechipjs",
+	"isomorphic-fetch",
+
 	// https://github.com/Microsoft/dtslint/pull/61
 	"jquery",
 
