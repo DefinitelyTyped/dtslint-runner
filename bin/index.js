@@ -155,6 +155,9 @@ const exclude = new Set([
     "sencha_touch",
     "mithril",
     "ej.web.all",
+    "react-navigation",
+    "ember-testing-helpers",
+    "ember",
 ]);
 async function getAllPackages(dtDir) {
     const typesDir = path_1.join(dtDir, "types");
