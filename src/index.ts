@@ -177,6 +177,9 @@ const exclude = new Set<string>([
 	"sencha_touch",
 	"mithril",
 	"ej.web.all",
+	"react-navigation",
+	"ember-testing-helpers",
+	"ember",
 ]);
 
 async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: string, path: string }>> {
