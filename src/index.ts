@@ -143,7 +143,7 @@ const exclude = new Set<string>([
 	// https://github.com/Microsoft/dtslint/pull/61
 	"jquery",
 
-	// https://github.com/reactjs/redux/pull/2530
+	// https://github.com/reactjs/redux/pull/2563
 	"redux-form",
 	"redux-first-router",
 	"redux-mock-store",
@@ -157,29 +157,8 @@ const exclude = new Set<string>([
 	"split",
 	"n3",
 
-	// Have PRs, waiting for merge
-	"angular",
-	"gulp",
-	"i18next",
-	"pad",
-	"jasminewd2",
-	"webcomponents.js",
-	"webpack",
-	"redux-batched-subscribe",
-	"redux-actions",
-	"redux-action",
-	"react-native-goby",
-	"react-app",
-	"ramda",
-	"baidumap-web-sdk",
-	"selenium-webdriver",
-	"react-virtualized-select",
-	"sencha_touch",
-	"mithril",
-	"ej.web.all",
-	"react-navigation",
-	"ember-testing-helpers",
-	"ember",
+	// https://github.com/Microsoft/TypeScript/issues/18765
+	"strophe",
 ]);
 
 async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: string, path: string }>> {
