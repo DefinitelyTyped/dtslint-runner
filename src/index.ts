@@ -119,23 +119,6 @@ function cloneDt(cwd: string): Promise<void> {
 }
 
 const exclude = new Set<string>([
-	"webrtc",
-	"webspeechapi",
-	"whatwg-streams",
-	"tinymce",
-	"transducers-js",
-	"skyway",
-	"react-router/v3",
-	"react-dom",
-	"react/v15",
-	"q/v0",
-	"pngjs2",
-	"peerjs",
-	"oibackoff",
-	"leaflet-draw",
-	"kendo-ui",
-	"i18next/v2",
-
 	// https://github.com/Microsoft/TSJS-lib-generator/issues/289
 	"chocolatechipjs",
 	"isomorphic-fetch",
@@ -149,16 +132,12 @@ const exclude = new Set<string>([
 	"redux-mock-store",
 	"redux-pack",
 
-	"fs-extra",
-	"koa-generic-session",
-	"bluebird",
+	// https://github.com/Microsoft/TypeScript/issues/17862
 	"xadesjs",
-	"bufferstream",
-	"split",
-	"n3",
-
 	// https://github.com/Microsoft/TypeScript/issues/18765
 	"strophe",
+	// https://github.com/Microsoft/TypeScript/issues/18890
+	"baconjs"
 ]);
 
 async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: string, path: string }>> {
