@@ -122,22 +122,10 @@ const exclude = new Set<string>([
 	// https://github.com/Microsoft/TSJS-lib-generator/issues/289
 	"chocolatechipjs",
 	"isomorphic-fetch",
-
-	// https://github.com/Microsoft/dtslint/pull/61
-	"jquery",
-
-	// https://github.com/reactjs/redux/pull/2563
-	"redux-form",
-	"redux-first-router",
-	"redux-mock-store",
-	"redux-pack",
-
 	// https://github.com/Microsoft/TypeScript/issues/17862
 	"xadesjs",
 	// https://github.com/Microsoft/TypeScript/issues/18765
 	"strophe",
-	// https://github.com/Microsoft/TypeScript/issues/18890
-	"baconjs"
 ]);
 
 async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: string, path: string }>> {
