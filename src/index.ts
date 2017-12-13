@@ -8,27 +8,18 @@ const pathToDtsLint = require.resolve("dtslint");
 
 if (module.parent === null) { // tslint:disable-line no-null-keyword
 	let clone = false;
-	let onlyLint = false;
 	let noInstall = false;
 	let nProcesses = cpus().length;
 	const { argv } = process;
 	for (let i = 2; i < argv.length; i++) {
 		const arg = argv[i];
 		switch (arg) {
-			case "--clone": {
+			case "--clone":
 				clone = true;
 				break;
-			}
-
-			case "--noInstall": {
+			case "--noInstall":
 				noInstall = true;
 				break;
-			}
-
-			case "--onlyLint": {
-				onlyLint = true;
-				break;
-			}
 			case "--nProcesses": {
 				i++;
 				assert(i < argv.length);
@@ -41,7 +32,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 		}
 	}
 
-	main(clone, nProcesses, noInstall, onlyLint)
+	main(clone, nProcesses, noInstall)
 		.then(code => {
 			if (code !== 0) {
 				console.error("FAILED");
@@ -54,7 +45,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
 		});
 }
 
-async function main(clone: boolean, nProcesses: number, noInstall: boolean, onlyLint: boolean): Promise<number> {
+async function main(clone: boolean, nProcesses: number, noInstall: boolean): Promise<number> {
 	if (clone && !noInstall) {
 		await remove(joinPaths(process.cwd(), "DefinitelyTyped"));
 		await cloneDt(process.cwd());
@@ -77,7 +68,7 @@ async function main(clone: boolean, nProcesses: number, noInstall: boolean, only
 
 	const packageToErrors = await nAtATime(nProcesses, allPackages, async ({ name, path }) => {
 		console.log(name);
-		return { name, error: await testPackage(path, onlyLint) };
+		return { name, error: await testPackage(path) };
 	});
 	const errors = packageToErrors.filter(({ error }) => error !== undefined) as
 		ReadonlyArray<{ name: string, error: string }>;
@@ -149,13 +140,8 @@ async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: stri
 	return ([] as ReadonlyArray<{ name: string, path: string }>).concat(...results);
 }
 
-async function testPackage(packagePath: string, onlyLint: boolean): Promise<string | undefined> {
-	const shouldLint = await pathExists(joinPaths(packagePath, "tslint.json"));
-	if (onlyLint && !shouldLint) {
-		return undefined;
-	}
-	const args = shouldLint ? "" : " --noLint";
-	return await run(packagePath, `node ${pathToDtsLint}${args}`);
+function testPackage(packagePath: string): Promise<string | undefined> {
+	return run(packagePath, `node ${pathToDtsLint}`);
 }
 
 async function runOrFail(cwd: string | undefined, cmd: string): Promise<void> {
