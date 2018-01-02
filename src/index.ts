@@ -110,9 +110,8 @@ function cloneDt(cwd: string): Promise<void> {
 }
 
 const exclude = new Set<string>([
-	// https://github.com/Microsoft/TSJS-lib-generator/issues/289
-	"chocolatechipjs",
-	"isomorphic-fetch",
+	// https://github.com/DefinitelyTyped/DefinitelyTyped/pull/22198#issuecomment-351840019
+	"ej.web.all",
 	// https://github.com/Microsoft/TypeScript/issues/17862
 	"xadesjs",
 	// https://github.com/Microsoft/TypeScript/issues/18765
