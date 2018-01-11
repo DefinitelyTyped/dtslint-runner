@@ -1,5 +1,5 @@
 import assert = require("assert");
-import { exec } from "child_process";
+import { ChildProcess, exec, fork } from "child_process";
 import { pathExists, readdir, remove } from "fs-extra";
 import { cpus } from "os";
 import { join as joinPaths } from "path";
@@ -51,39 +51,51 @@ async function main(clone: boolean, nProcesses: number, noInstall: boolean): Pro
 		await cloneDt(process.cwd());
 	}
 
-	if (!noInstall) {
-		await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
-	}
-
 	const dtDir = joinPaths(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
 	if (!(await pathExists(dtDir))) {
 		throw new Error("Should be run in a directory next to DefinitelyTyped");
 	}
+	const typesDir = joinPaths(dtDir, "types");
 
-	const allPackages = await getAllPackages(dtDir);
+	const allPackages = await getAllPackages(typesDir);
 
 	if (!noInstall) {
-		await installAllDependencies(nProcesses, allPackages.map(p => p.path));
+		await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
+		await installAllDependencies(nProcesses, typesDir, allPackages);
 	}
 
-	const packageToErrors = await nAtATime(nProcesses, allPackages, async ({ name, path }) => {
-		console.log(name);
-		return { name, error: await testPackage(path) };
-	});
-	const errors = packageToErrors.filter(({ error }) => error !== undefined) as
-		ReadonlyArray<{ name: string, error: string }>;
+	const allFailures: Array<[string, string]> = [];
 
-	if (errors.length === 0) {
-		console.log("No errors");
+	await runWithListeningChildProcesses({
+		inputs: allPackages.map(path => ({ path, onlyTestTsNext: false })),
+		commandLineArgs: ["--listen"],
+		workerFile: pathToDtsLint,
+		nProcesses,
+		cwd: typesDir,
+		handleOutput(output): void {
+			const { path, status } = output as { path: string, status: string };
+			if (status === "OK") {
+				console.log(`${path} OK`);
+			} else {
+				console.error(`${path} failing:`);
+				console.error(status);
+				allFailures.push([path, status]);
+			}
+		},
+	});
+
+	if (allFailures.length === 0) {
 		return 0;
 	}
 
-	for (const { name, error } of errors) {
-		console.error(name);
-		console.error(`  ${error.replace(/\n/g, "\n  ")}`);
+	console.error("\n\n=== ERRORS ===\n");
+
+	for (const [path, error] of allFailures) {
+		console.error(`\n\nError in ${path}`);
+		console.error(error);
 	}
 
-	console.error(`Failing packages: ${errors.map(e => e.name).join(", ")}`);
+	console.error(`The following packages had errors: ${allFailures.map(e => e[0]).join(", ")}`);
 	return 1;
 }
 
@@ -91,8 +103,13 @@ async function main(clone: boolean, nProcesses: number, noInstall: boolean): Pro
  * Install all `package.json` dependencies up-front.
  * This ensures that if `types/aaa` depends on `types/zzz`, `types/zzz`'s dependencies will already be installed.
  */
-async function installAllDependencies(nProcesses: number, packagePaths: ReadonlyArray<string>): Promise<void> {
-	await nAtATime(nProcesses, packagePaths, async packagePath => {
+async function installAllDependencies(
+	nProcesses: number,
+	typesDir: string,
+	packages: ReadonlyArray<string>,
+): Promise<void> {
+	await nAtATime(nProcesses, packages, async packageName => {
+		const packagePath = joinPaths(typesDir, packageName);
 		if (!await pathExists(joinPaths(packagePath, "package.json"))) {
 			return;
 		}
@@ -110,16 +127,13 @@ function cloneDt(cwd: string): Promise<void> {
 }
 
 const exclude = new Set<string>([
-	// https://github.com/DefinitelyTyped/DefinitelyTyped/pull/22198#issuecomment-351840019
-	"ej.web.all",
 	// https://github.com/Microsoft/TypeScript/issues/17862
 	"xadesjs",
 	// https://github.com/Microsoft/TypeScript/issues/18765
 	"strophe",
 ]);
 
-async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: string, path: string }>> {
-	const typesDir = joinPaths(dtDir, "types");
+async function getAllPackages(typesDir: string): Promise<ReadonlyArray<string>> {
 	const packageNames = await readdir(typesDir);
 	const results = await nAtATime(1, packageNames, async packageName => {
 		if (exclude.has(packageName)) {
@@ -127,20 +141,15 @@ async function getAllPackages(dtDir: string): Promise<ReadonlyArray<{ name: stri
 		}
 		const packageDir = joinPaths(typesDir, packageName);
 		const files = await readdir(packageDir);
-		const packages = [{ name: packageName, path: packageDir }];
+		const packages = [packageName];
 		for (const file of files) {
 			if (/^v\d+$/.test(file)) {
-				const name = `${packageName}/${file}`;
-				packages.push({ name, path: joinPaths(packageDir, file) });
+				packages.push(`${packageName}/${file}`);
 			}
 		}
 		return packages;
 	});
-	return ([] as ReadonlyArray<{ name: string, path: string }>).concat(...results);
-}
-
-function testPackage(packagePath: string): Promise<string | undefined> {
-	return run(packagePath, `node ${pathToDtsLint}`);
+	return ([] as ReadonlyArray<string>).concat(...results);
 }
 
 async function runOrFail(cwd: string | undefined, cmd: string): Promise<void> {
@@ -191,4 +200,63 @@ function initArray<T>(length: number, makeElement: () => T): T[] {
 		arr[i] = makeElement();
 	}
 	return arr;
+}
+
+interface RunWithListeningChildProcessesOptions<In> {
+	readonly inputs: ReadonlyArray<In>;
+	readonly commandLineArgs: string[];
+	readonly workerFile: string;
+	readonly nProcesses: number;
+	readonly cwd: string;
+	handleOutput(output: {}): void;
+}
+function runWithListeningChildProcesses<In>(
+	{ inputs, commandLineArgs, workerFile, nProcesses, cwd, handleOutput }: RunWithListeningChildProcessesOptions<In>,
+): Promise<void> {
+	return new Promise((resolve, reject) => {
+		let inputIndex = 0;
+		let processesLeft = nProcesses;
+		let rejected = false;
+		const allChildren: ChildProcess[] = [];
+		for (let i = 0; i < nProcesses; i++) {
+			if (inputIndex === inputs.length) {
+				processesLeft--;
+				continue;
+			}
+
+			const child = fork(workerFile, commandLineArgs, { cwd });
+			allChildren.push(child);
+			child.send(inputs[inputIndex]);
+			inputIndex++;
+
+			child.on("message", outputMessage => {
+				handleOutput(outputMessage as {});
+				if (inputIndex === inputs.length) {
+					processesLeft--;
+					if (processesLeft === 0) {
+						resolve();
+					}
+					child.kill();
+				} else {
+					child.send(inputs[inputIndex]);
+					inputIndex++;
+				}
+			});
+			child.on("disconnect", () => {
+				if (inputIndex !== inputs.length) {
+					fail();
+				}
+			});
+			child.on("close", () => { assert(rejected || inputIndex === inputs.length); });
+			child.on("error", fail);
+		}
+
+		function fail(): void {
+			rejected = true;
+			for (const child of allChildren) {
+				child.kill();
+			}
+			reject(new Error(`Something went wrong in ${runWithListeningChildProcesses.name}`));
+		}
+	});
 }

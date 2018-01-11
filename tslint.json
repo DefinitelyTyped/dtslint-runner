@@ -8,12 +8,15 @@
         "typedef": [true, "call-signature"],
 
         "completed-docs": false,
+        "interface-name": false,
         "linebreak-style": false,
         "member-ordering": false,
         "newline-before-return": false,
+        "newline-per-chained-call": false,
         "no-console": false,
         "no-require-imports": false,
         "no-unused-variable": false,
+        "object-literal-sort-keys": false,
         "promise-function-async": false,
         "type-literal-delimiter": false
     }
