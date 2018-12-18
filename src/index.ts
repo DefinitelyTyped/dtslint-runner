@@ -224,7 +224,7 @@ function runWithListeningChildProcesses<In>(
 				continue;
 			}
 
-			const child = fork(workerFile, commandLineArgs, { cwd });
+			const child = fork(workerFile, commandLineArgs, { cwd, execArgv: ["--max-old-space-size=4096"] });
 			allChildren.push(child);
 			child.send(inputs[inputIndex]);
 			inputIndex++;

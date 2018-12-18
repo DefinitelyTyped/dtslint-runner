@@ -1,0 +1,137 @@
+npm WARN apollo-link@1.2.2 requires a peer of graphql@^0.11.3 || ^0.12.3 || ^0.13.0 but none is installed. You must install peer dependencies yourself.
+npm WARN apollo-link-http-common@0.2.4 requires a peer of graphql@^0.11.0 || ^0.12.0 || ^0.13.0 but none is installed. You must install peer dependencies yourself.
+npm WARN react-native-maps@0.22.1 requires a peer of react@>= 16.0 || < 17.0 but none is installed. You must install peer dependencies yourself.
+npm WARN react-native-maps@0.22.1 requires a peer of react-native@>= 0.51 but none is installed. You must install peer dependencies yourself.
+npm WARN react-native-maps@0.22.1 requires a peer of prop-types@^15.0 || ^16.0 but none is installed. You must install peer dependencies yourself.
+npm WARN apollo-link@1.2.3 requires a peer of graphql@^0.11.3 || ^0.12.3 || ^0.13.0 || ^14.0.0 but none is installed. You must install peer dependencies yourself.
+npm WARN graphql-tools@4.0.3 requires a peer of graphql@^0.13.0 || ^14.0.0 but none is installed. You must install peer dependencies yourself.
+npm WARN apollo-client@2.4.0 requires a peer of graphql@^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 but none is installed. You must install peer dependencies yourself.
+npm WARN apollo-link@1.2.2 requires a peer of graphql@^0.11.3 || ^0.12.3 || ^0.13.0 but none is installed. You must install peer dependencies yourself.
+npm WARN mali@0.10.2 requires a peer of @grpc/proto-loader@~0.3.0 but none is installed. You must install peer dependencies yourself.
+npm WARN mali@0.10.2 requires a peer of @grpc/proto-loader@~0.3.0 but none is installed. You must install peer dependencies yourself.
+npm WARN react-native-svg@6.5.2 requires a peer of react-native@>=0.50.0 but none is installed. You must install peer dependencies yourself.
+npm WARN react-native-svg@6.5.2 requires a peer of react@* but none is installed. You must install peer dependencies yourself.
+npm WARN react-native-svg@6.5.2 requires a peer of prop-types@^15.5.7 but none is installed. You must install peer dependencies yourself.
+npm WARN react-dnd@5.0.0 requires a peer of react@>= 16.3 but none is installed. You must install peer dependencies yourself.
+npm WARN recompose@0.27.1 requires a peer of react@^0.14.0 || ^15.0.0 || ^16.0.0 but none is installed. You must install peer dependencies yourself.
+npm WARN objection@1.2.3 requires a peer of knex@0.x but none is installed. You must install peer dependencies yourself.
+npm WARN styled-components@3.4.2 requires a peer of react@>= 0.14.0 < 17.0.0-0 but none is installed. You must install peer dependencies yourself.
+acorn failing:
+Error: /home/nathansa/DefinitelyTyped/types/acorn/acorn-tests.ts[8m:35:5[28m
+[31mERROR: 35:5 [39m  [90munnecessary-constructor[39m  [33mRemove unnecessary empty constructor.[39m
+
+/home/nathansa/DefinitelyTyped/types/acorn/index.d.ts[8m:250:9[28m
+[31mERROR: 250:9[39m  [90mcallable-types         [39m  [33mInterface has only a call signature — use `type ILooseParserClass = new (input: string, options?: Options) => ILooseParser;` instead.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+ace failing:
+Error: /home/nathansa/DefinitelyTyped/types/ace/test/background_tokenizer.ts[8m:2:53[28m
+[31mERROR: 2:53  [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 7:53  [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+/home/nathansa/DefinitelyTyped/types/ace/test/edit_session.ts[8m:41:35[28m
+[31mERROR: 41:35 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 359:48[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 580:50[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+/home/nathansa/DefinitelyTyped/types/ace/test/editor_highlight_selected_word.ts[8m:26:65[28m
+[31mERROR: 26:65 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+/home/nathansa/DefinitelyTyped/types/ace/test/multi_select.ts[8m:4:14[28m
+[31mERROR: 4:14  [39m  [90mincrement-decrement[39m  [33mUse an explicit -= 1 operator.[39m
+
+/home/nathansa/DefinitelyTyped/types/ace/test/token_iterator.ts[8m:101:34[28m
+[31mERROR: 101:34[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 105:44[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 123:34[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 127:49[39m  [90mincrement-decrement[39m  [33mUse an explicit -= 1 operator.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-adodb failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-adodb/activex-adodb-tests.ts[8m:168:45[28m
+[31mERROR: 168:45[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 171:63[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 319:37[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-diskquota failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-diskquota/index.d.ts[8m:148:5[28m
+[31mERROR: 148:5[39m  [90mcallable-types[39m  [33mInterface has only a call signature — use `type EnumeratorConstructor = new(col: DiskQuotaTypeLibrary.DiskQuotaControl) => Enumerator<DiskQuotaTypeLibrary.DIDiskQuotaUser>;` instead.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-interop failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-interop/activex-interop-tests.ts[8m:17:39[28m
+[31mERROR: 17:39[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+/home/nathansa/DefinitelyTyped/types/activex-interop/index.d.ts[8m:53:5[28m
+[31mERROR: 53:5 [39m  [90mcallable-types     [39m  [33mInterface has only a call signature — use `type EnumeratorConstructor = new <T = any>(collection: { Item(index: any): T }) => Enumerator<T>;` instead.[39m
+[31mERROR: 93:5 [39m  [90mcallable-types     [39m  [33mInterface has only a call signature — use `type VBArrayConstructor = new <T = any>(safeArray: SafeArray<T>) => VBArray<T>;` instead.[39m
+[31mERROR: 105:5[39m  [90mcallable-types     [39m  [33mInterface has only a call signature — use `type DateConstructor = new(vd: VarDate) => Date;` instead.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-adox failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-adox/activex-adox-tests.ts[8m:758:44[28m
+[31mERROR: 758:44 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 788:44 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 805:44 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 1173:54[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-faxcomexlib failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-faxcomexlib/activex-faxcomexlib-tests.ts[8m:106:41[28m
+[31mERROR: 106:41[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 440:41[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 467:41[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 554:41[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-msxml2 failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-msxml2/activex-msxml2-tests.ts[8m:169:44[28m
+[31mERROR: 169:44[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 305:40[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 320:40[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-scripting failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-scripting/index.d.ts[8m:504:5[28m
+[31mERROR: 504:5[39m  [90mcallable-types[39m  [33mInterface has only a call signature — use `type EnumeratorConstructor = new <TKey>(dict: Scripting.Dictionary<TKey>) => Enumerator<TKey>;` instead.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-wia failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-wia/activex-wia-tests.ts[8m:79:57[28m
+[31mERROR: 79:57 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 172:39[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 443:65[39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
+activex-excel failing:
+Error: /home/nathansa/DefinitelyTyped/types/activex-excel/activex-excel-tests.ts[8m:184:29[28m
+[31mERROR: 184:29 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+[31mERROR: 331:34 [39m  [90mincrement-decrement[39m  [33mUse an explicit += 1 operator.[39m
+
+/home/nathansa/DefinitelyTyped/types/activex-excel/index.d.ts[8m:10063:5[28m
+[31mERROR: 10063:5[39m  [90mcallable-types     [39m  [33mInterface has only a call signature — use `type EnumeratorConstructor = new <T>(sheets: Excel.Sheets<T>) => Enumerator<T>;` instead.[39m
+
+    at /home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:158:19
+    at Generator.next (<anonymous>)
+    at fulfilled (/home/nathansa/dtslint-runner/node_modules/dtslint/bin/index.js:5:58)
