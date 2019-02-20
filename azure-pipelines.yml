@@ -13,7 +13,7 @@ steps:
   inputs:
     verbose: false
 
-- script: 'node ./bin/index.js --clone --onlyTestTsNext'
+- script: 'tsc && node ./bin/index.js --clone --onlyTestTsNext'
   displayName: 'node ./bin/index.js --clone --onlyTestTsNext'
 
 trigger:
