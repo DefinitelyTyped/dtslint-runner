@@ -15,7 +15,7 @@
     "typescript": "next"
   },
   "dependencies": {
-    "dtslint": "github:Microsoft/dtslint#production",
+    "dtslint": "latest",
     "fs-extra": "^4.0.1"
   }
 }
