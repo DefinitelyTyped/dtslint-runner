@@ -13,8 +13,8 @@ steps:
   inputs:
     verbose: false
 
-- script: 'node ./bin/index.js --clone'
-  displayName: 'node ./bin/index.js --clone'
+- script: 'node ./bin/index.js --clone --onlyTestTsNext'
+  displayName: 'node ./bin/index.js --clone --onlyTestTsNext'
 
 trigger:
 - master
