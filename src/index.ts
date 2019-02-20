@@ -10,6 +10,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
     let clone = false;
     let noInstall = false;
     let onlyTestTsNext = false;
+    let expectOnly = false;
     let nProcesses = cpus().length;
     const { argv } = process;
     for (let i = 2; i < argv.length; i++) {
@@ -17,6 +18,9 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         switch (arg) {
             case "--onlyTestTsNext":
                 onlyTestTsNext = true;
+                break;
+            case "--expectOnly":
+                expectOnly = true;
                 break;
             case "--clone":
                 clone = true;
@@ -36,7 +40,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         }
     }
 
-    main(clone, nProcesses, noInstall, onlyTestTsNext)
+    main(clone, nProcesses, noInstall, onlyTestTsNext, expectOnly)
         .then(code => {
             if (code !== 0) {
                 console.error("FAILED");
@@ -49,7 +53,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         });
 }
 
-async function main(clone: boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean): Promise<number> {
+async function main(clone: boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean, expectOnly: boolean): Promise<number> {
     if (clone && !noInstall) {
         await remove(joinPaths(process.cwd(), "DefinitelyTyped"));
         await cloneDt(process.cwd());
@@ -71,7 +75,7 @@ async function main(clone: boolean, nProcesses: number, noInstall: boolean, only
     const allFailures: Array<[string, string]> = [];
 
     await runWithListeningChildProcesses({
-        inputs: allPackages.map(path => ({ path, onlyTestTsNext })),
+        inputs: allPackages.map(path => ({ path, onlyTestTsNext, expectOnly })),
         commandLineArgs: ["--listen"],
         workerFile: pathToDtsLint,
         nProcesses,

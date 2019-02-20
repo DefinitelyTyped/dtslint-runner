@@ -13,10 +13,11 @@ steps:
   inputs:
     verbose: false
 
-- script: 'tsc && node ./bin/index.js --clone --onlyTestTsNext'
-  displayName: 'node ./bin/index.js --clone --onlyTestTsNext'
+- script: 'tsc && node ./bin/index.js --clone --onlyTestTsNext --expectOnly'
+  displayName: 'node ./bin/index.js --clone --onlyTestTsNext --expectOnly'
 
 trigger:
 - master
 
-
+jobs:
+- timeoutInMinutes: 0
