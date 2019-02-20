@@ -3,7 +3,9 @@
     "rules": {
         "arrow-parens": [true, "ban-single-arg-parens"],
         "comment-format": [true, "check-space"],
-        "indent": [true, "tabs"],
+        "indent": [true, "spaces"],
+        "increment-decrement": false,
+        "radix": false,
         "only-arrow-functions": [true, "allow-declarations"],
         "typedef": [true, "call-signature"],
 
