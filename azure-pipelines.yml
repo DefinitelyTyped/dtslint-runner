@@ -18,3 +18,7 @@ steps:
 
 trigger:
 - master
+
+jobs:
+- job: Test
+  timeoutInMinutes: 10
