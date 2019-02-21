@@ -5,6 +5,9 @@ node_js:
 
 sudo: false
 
+env:
+  - workerCount=4
+
 branches:
   only:
   - master
