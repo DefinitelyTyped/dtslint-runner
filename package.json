@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "run-clone": "node ./bin/index.js --clone --onlyTestTsNext --expectOnly",
+    "test": "node ./node_modules/typescript/lib/tsc.js && node ./bin/index.js --clone --onlyTestTsNext --expectOnly",
     "lint": "tslint --project tsconfig.json --format stylish"
   },
   "license": "MIT",
