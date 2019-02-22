@@ -104,7 +104,8 @@ async function main(clone: boolean, nProcesses: number, noInstall: boolean, only
     }
 
     console.error(`The following packages had errors: ${allFailures.map(e => e[0]).join(", ")}`);
-    return 1;
+    // TODO: If requested, open a bug on Typescript pointing to the devops build log and listing the packages that fail
+    return allFailures.length;
 }
 
 /**
