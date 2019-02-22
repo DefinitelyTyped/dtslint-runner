@@ -9,6 +9,7 @@ const pathToDtsLint = require.resolve("dtslint");
 if (module.parent === null) { // tslint:disable-line no-null-keyword
     let clone = false;
     let noInstall = false;
+    let tsLocal: string | undefined;
     let onlyTestTsNext = false;
     let expectOnly = false;
     let nProcesses = cpus().length;
@@ -18,6 +19,18 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         switch (arg) {
             case "--onlyTestTsNext":
                 onlyTestTsNext = true;
+                break;
+            case "--localTs":
+                if (i + 1 >= argv.length) {
+                    throw new Error("Path for --localTs was not provided.");
+                }
+                else if (argv[i + 1].startsWith("--")) {
+                    throw new Error("Looking for local path for TS, but got " + tsLocal);
+                }
+                else {
+                    tsLocal = argv[i + 1];
+                    i++;
+                }
                 break;
             case "--expectOnly":
                 expectOnly = true;
@@ -40,7 +53,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         }
     }
 
-    main(clone, nProcesses, noInstall, onlyTestTsNext, expectOnly)
+    main(clone, nProcesses, noInstall, onlyTestTsNext, expectOnly, tsLocal)
         .then(code => {
             if (code !== 0) {
                 console.error("FAILED");
@@ -53,7 +66,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         });
 }
 
-async function main(clone: boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean, expectOnly: boolean): Promise<number> {
+async function main(clone: boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean, expectOnly: boolean, tsLocal: string | undefined): Promise<number> {
     if (clone && !noInstall) {
         await remove(joinPaths(process.cwd(), "DefinitelyTyped"));
         await cloneDt(process.cwd());
@@ -76,7 +89,7 @@ async function main(clone: boolean, nProcesses: number, noInstall: boolean, only
 
     await runWithListeningChildProcesses({
         inputs: allPackages.map(path => ({ path, onlyTestTsNext, expectOnly })),
-        commandLineArgs: ["--listen"],
+        commandLineArgs: tsLocal ? ["--listen", "--localTs", tsLocal] : ["--listen"],
         workerFile: pathToDtsLint,
         nProcesses,
         cwd: typesDir,
