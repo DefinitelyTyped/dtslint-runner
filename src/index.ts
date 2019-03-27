@@ -8,11 +8,14 @@ const pathToDtsLint = require.resolve("dtslint");
 
 if (module.parent === null) { // tslint:disable-line no-null-keyword
     let clone = false;
+    let cloneSha: string | undefined = undefined;
     let noInstall = false;
     let tsLocal: string | undefined;
     let onlyTestTsNext = false;
     let expectOnly = false;
     let nProcesses = cpus().length;
+    let shardId: number | undefined = undefined;
+    let shardCount: number | undefined = undefined;
     const { argv } = process;
     for (let i = 2; i < argv.length; i++) {
         const arg = argv[i];
@@ -37,6 +40,11 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
                 break;
             case "--clone":
                 clone = true;
+                if ((i + 1) < argv.length && argv[i + 1].indexOf("-") !== 0) {
+                    // Next argument is a specific DT SHA to clone if it doesn't start with a `-`
+                    i++;
+                    cloneSha = argv[i];
+                }
                 break;
             case "--noInstall":
                 noInstall = true;
@@ -48,12 +56,23 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
                 assert(!Number.isNaN(nProcesses));
                 break;
             }
+            case "--sharded": {
+                i++;
+                assert(i < argv.length);
+                shardId = Number.parseInt(argv[i]);
+                assert(!Number.isNaN(shardId));
+                i++;
+                assert(i < argv.length);
+                shardCount = Number.parseInt(argv[i]);
+                assert(!Number.isNaN(shardCount));
+                break;
+            }
             default:
                 throw new Error(`Unexpected arg ${arg}`);
         }
     }
 
-    main(clone, nProcesses, noInstall, onlyTestTsNext, expectOnly, tsLocal)
+    main(cloneSha || clone, nProcesses, noInstall, onlyTestTsNext, expectOnly, tsLocal, shardId ? {id: shardId, count: shardCount!} : undefined)
         .then(code => {
             if (code !== 0) {
                 console.error("FAILED");
@@ -66,10 +85,10 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         });
 }
 
-async function main(clone: boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean, expectOnly: boolean, tsLocal: string | undefined): Promise<number> {
+async function main(clone: string | boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean, expectOnly: boolean, tsLocal: string | undefined, sharding: {id: number, count: number} | undefined): Promise<number> {
     if (clone && !noInstall) {
         await remove(joinPaths(process.cwd(), "DefinitelyTyped"));
-        await cloneDt(process.cwd());
+        await cloneDt(process.cwd(), typeof clone === "string" ? clone : undefined);
     }
 
     const dtDir = joinPaths(process.cwd(), clone ? "" : "..", "DefinitelyTyped");
@@ -78,7 +97,7 @@ async function main(clone: boolean, nProcesses: number, noInstall: boolean, only
     }
     const typesDir = joinPaths(dtDir, "types");
 
-    const allPackages = await getAllPackages(typesDir);
+    const allPackages = await getAllPackages(typesDir, sharding);
 
     if (!noInstall) {
         await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
@@ -142,10 +161,28 @@ async function installAllDependencies(
     });
 }
 
-function cloneDt(cwd: string): Promise<void> {
-    const cmd = "git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1";
-    console.log(cmd);
-    return runOrFail(cwd, cmd);
+async function cloneDt(cwd: string, sha: string | undefined): Promise<void> {
+    if (sha) {
+        const cmd = `git init DefinitelyTyped`;
+        console.log(cmd);
+        await runOrFail(cwd, cmd);
+        cwd = `${cwd}/DefinitelyTyped`;
+        const commands = [
+            `git remote add origin https://github.com/DefinitelyTyped/DefinitelyTyped.git`,
+            `git fetch origin master --depth 50`, // We can't clone the commit directly, so we assume the commit is from recent history, pull down some recent commits,
+            `git checkout ${sha}` // then check it out
+        ];
+        for (const command of commands) {
+            console.log(command);
+            await runOrFail(cwd, command);
+        }
+        return;
+    }
+    else {
+        const cmd = `git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1`;
+        console.log(cmd);
+        return await runOrFail(cwd, cmd);
+    }
 }
 
 const exclude = new Set<string>([
@@ -155,7 +192,7 @@ const exclude = new Set<string>([
     "strophe",
 ]);
 
-async function getAllPackages(typesDir: string): Promise<ReadonlyArray<string>> {
+async function getAllPackages(typesDir: string, sharding: {id: number, count: number} | undefined): Promise<ReadonlyArray<string>> {
     const packageNames = await readdir(typesDir);
     const results = await nAtATime(1, packageNames, async packageName => {
         if (exclude.has(packageName)) {
@@ -171,7 +208,13 @@ async function getAllPackages(typesDir: string): Promise<ReadonlyArray<string>> 
         }
         return packages;
     });
-    return ([] as ReadonlyArray<string>).concat(...results);
+    const arr = ([] as ReadonlyArray<string>).concat(...results);
+    if (sharding) {
+        return arr.filter((_, i) => (i % sharding.count) === (sharding.id - 1)); // Don't shard in order, this way, eg `react` packages are split across all workers
+    }
+    else {
+        return arr;
+    }
 }
 
 async function runOrFail(cwd: string | undefined, cmd: string): Promise<void> {
