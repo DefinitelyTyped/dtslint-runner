@@ -97,7 +97,9 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
     }
     const typesDir = joinPaths(dtDir, "types");
 
-    const allPackages = await getAllPackages(typesDir, sharding);
+    const allPackages = await getAllPackages(typesDir);
+    // Don't shard in order, this way, eg `react` packages are split across all workers
+    const testedPackages = sharding ? allPackages.filter((_, i) => (i % sharding.count) === (sharding.id - 1)) : allPackages;
 
     if (!noInstall) {
         await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
@@ -107,7 +109,7 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
     const allFailures: Array<[string, string]> = [];
 
     await runWithListeningChildProcesses({
-        inputs: allPackages.map(path => ({ path, onlyTestTsNext, expectOnly })),
+        inputs: testedPackages.map(path => ({ path, onlyTestTsNext, expectOnly })),
         commandLineArgs: tsLocal ? ["--listen", "--localTs", tsLocal] : ["--listen"],
         workerFile: pathToDtsLint,
         nProcesses,
@@ -192,7 +194,7 @@ const exclude = new Set<string>([
     "strophe",
 ]);
 
-async function getAllPackages(typesDir: string, sharding: {id: number, count: number} | undefined): Promise<ReadonlyArray<string>> {
+async function getAllPackages(typesDir: string): Promise<ReadonlyArray<string>> {
     const packageNames = await readdir(typesDir);
     const results = await nAtATime(1, packageNames, async packageName => {
         if (exclude.has(packageName)) {
@@ -208,13 +210,7 @@ async function getAllPackages(typesDir: string, sharding: {id: number, count: nu
         }
         return packages;
     });
-    const arr = ([] as ReadonlyArray<string>).concat(...results);
-    if (sharding) {
-        return arr.filter((_, i) => (i % sharding.count) === (sharding.id - 1)); // Don't shard in order, this way, eg `react` packages are split across all workers
-    }
-    else {
-        return arr;
-    }
+    return ([] as ReadonlyArray<string>).concat(...results);
 }
 
 async function runOrFail(cwd: string | undefined, cmd: string): Promise<void> {
