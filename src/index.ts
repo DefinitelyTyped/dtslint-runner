@@ -3,6 +3,8 @@ import { ChildProcess, exec, fork } from "child_process";
 import { pathExists, readdir, remove } from "fs-extra";
 import { cpus } from "os";
 import { join as joinPaths } from "path";
+import { readdirSync, readFileSync } from 'fs';
+import { percentile } from 'stats-lite';
 
 const pathToDtsLint = require.resolve("dtslint");
 
@@ -130,6 +132,8 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
         return 0;
     }
 
+    logPerformance();
+
     console.error("\n\n=== ERRORS ===\n");
 
     for (const [path, error] of allFailures) {
@@ -140,6 +144,27 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
     console.error(`The following packages had errors: ${allFailures.map(e => e[0]).join(", ")}`);
     // TODO: If requested, open a bug on Typescript pointing to the devops build log and listing the packages that fail
     return allFailures.length;
+}
+
+function logPerformance() {
+    console.log("\n\n=== PERFORMANCE ===\n");
+    let big: Array<[string, number]> = [];
+    let types: number[] = [];
+    for (const filename of readdirSync('/home/nathansa/.dts/perf/', { encoding: "utf8" })) {
+        const x = JSON.parse(readFileSync('/home/nathansa/.dts/perf/' + filename, { encoding: 'utf8' })) as { [s: string]: { typeCount: number, memory: number } };
+        for (const k of Object.keys(x)) {
+            big.push([k, x[k].typeCount]);
+            types.push(x[k].typeCount);
+        }
+    }
+    console.log("{" + big.sort((a, b) => b[1] - a[1]).map(([name, count]) => ` "${name}": ${count}`).join(",") + "}");
+
+    console.log("  * Percentiles: ");
+    console.log("99:", percentile(types, 0.99));
+    console.log("95:", percentile(types, 0.95));
+    console.log("90:", percentile(types, 0.90));
+    console.log("70:", percentile(types, 0.70));
+    console.log("50:", percentile(types, 0.50));
 }
 
 /**

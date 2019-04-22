@@ -16,7 +16,8 @@
     "typescript": "next"
   },
   "dependencies": {
-    "dtslint": "latest",
-    "fs-extra": "^4.0.1"
+    "dtslint": "^0.7.0",
+    "fs-extra": "^4.0.1",
+    "stats-lite": "^2.2.0"
   }
 }
