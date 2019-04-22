@@ -140,11 +140,11 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
         },
     });
 
+    logPerformance();
+
     if (allFailures.length === 0) {
         return 0;
     }
-
-    logPerformance();
 
     console.error("\n\n=== ERRORS ===\n");
 
