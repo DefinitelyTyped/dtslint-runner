@@ -332,8 +332,7 @@ function runWithListeningChildProcesses<In>(
                     return;
                 }
 
-                // `134` seems to be the exit code used by Node when it runs out of memory.
-                if (crashRecovery && code === 134 && signal === null) {
+                if (crashRecovery && code && !signal) {
                     switch (crashRecoveryState) {
                         case CrashRecoveryState.Normal:
                             crashRecoveryState = CrashRecoveryState.Retry;
@@ -350,6 +349,8 @@ function runWithListeningChildProcesses<In>(
                             break;
                         default:
                     }
+                } else if (handleCrash) {
+                    handleCrash(currentInput, CrashRecoveryState.Crashed);
                 }
 
                 fail();
