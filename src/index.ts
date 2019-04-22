@@ -8,6 +8,8 @@ import { percentile } from 'stats-lite';
 
 const DEFAULT_CRASH_RECOVERY_MAX_OLD_SPACE_SIZE = 4096;
 
+const DEFAULT_CRASH_RECOVERY_MAX_OLD_SPACE_SIZE = 4096;
+
 const pathToDtsLint = require.resolve("dtslint");
 const perfDir = joinPaths(homedir(), ".dts", "perf");
 
