@@ -114,6 +114,7 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
         workerFile: pathToDtsLint,
         nProcesses,
         cwd: typesDir,
+        crashRecovery: true,
         handleOutput(output): void {
             const { path, status } = output as { path: string, status: string };
             if (status === "OK") {
@@ -122,6 +123,17 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
                 console.error(`${path} failing:`);
                 console.error(status);
                 allFailures.push([path, status]);
+            }
+        },
+        handleCrash(input, state) {
+            switch (state) {
+                case CrashRecoveryState.Retry:
+                    console.log(`${input.path} Out of memory: retrying`);
+                    break;
+                case CrashRecoveryState.Crashed:
+                    console.log(`${input.path} Out of memory: failed`);
+                    break;
+                default:
             }
         },
     });
@@ -263,34 +275,44 @@ function initArray<T>(length: number, makeElement: () => T): T[] {
     return arr;
 }
 
+const enum CrashRecoveryState {
+    Normal,
+    Retry,
+    Crashed,
+}
+
 interface RunWithListeningChildProcessesOptions<In> {
     readonly inputs: ReadonlyArray<In>;
     readonly commandLineArgs: string[];
     readonly workerFile: string;
     readonly nProcesses: number;
     readonly cwd: string;
+    readonly crashRecovery?: boolean;
     handleOutput(output: {}): void;
+    handleCrash?(input: In, state: CrashRecoveryState): void;
 }
 function runWithListeningChildProcesses<In>(
-    { inputs, commandLineArgs, workerFile, nProcesses, cwd, handleOutput }: RunWithListeningChildProcessesOptions<In>,
+    { inputs, commandLineArgs, workerFile, nProcesses, cwd, handleOutput, crashRecovery,
+      handleCrash }: RunWithListeningChildProcessesOptions<In>,
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         let inputIndex = 0;
         let processesLeft = nProcesses;
         let rejected = false;
-        const allChildren: ChildProcess[] = [];
+        const allChildren = new Set<ChildProcess>();
         for (let i = 0; i < nProcesses; i++) {
             if (inputIndex === inputs.length) {
                 processesLeft--;
                 continue;
             }
 
-            const child = fork(workerFile, commandLineArgs, { cwd, execArgv: ["--max-old-space-size=4096"] });
-            allChildren.push(child);
-            child.send(inputs[inputIndex]);
+            let child: ChildProcess;
+            let crashRecoveryState = CrashRecoveryState.Normal;
+            let currentInput = inputs[inputIndex];
             inputIndex++;
 
-            child.on("message", outputMessage => {
+            const onMessage = (outputMessage: unknown) => {
+                crashRecoveryState = CrashRecoveryState.Normal;
                 handleOutput(outputMessage as {});
                 if (inputIndex === inputs.length) {
                     processesLeft--;
@@ -299,25 +321,70 @@ function runWithListeningChildProcesses<In>(
                     }
                     child.kill();
                 } else {
-                    child.send(inputs[inputIndex]);
+                    currentInput = inputs[inputIndex];
                     inputIndex++;
+                    child.send(currentInput);
                 }
-            });
-            child.on("disconnect", () => {
-                if (inputIndex !== inputs.length) {
-                    fail();
+            };
+
+            const onClose = (code: number, signal: string) => {
+                if (rejected || inputIndex === inputs.length) {
+                    return;
                 }
-            });
-            child.on("close", () => { assert(rejected || inputIndex === inputs.length); });
-            child.on("error", fail);
+
+                // `134` seems to be the exit code used by Node when it runs out of memory.
+                if (crashRecovery && code === 134 && signal === null) {
+                    switch (crashRecoveryState) {
+                        case CrashRecoveryState.Normal:
+                            crashRecoveryState = CrashRecoveryState.Retry;
+                            if (handleCrash) {
+                                handleCrash(currentInput, crashRecoveryState);
+                            }
+                            restartChild();
+                            return;
+                        case CrashRecoveryState.Retry:
+                            crashRecoveryState = CrashRecoveryState.Crashed;
+                            if (handleCrash) {
+                                handleCrash(currentInput, crashRecoveryState);
+                            }
+                            break;
+                        default:
+                    }
+                }
+
+                fail();
+            };
+
+            const onError = () => {
+                fail();
+            };
+
+            const startChild = () => {
+                child = fork(workerFile, commandLineArgs, { cwd });
+                allChildren.add(child);
+                child.on("message", onMessage);
+                child.on("close", onClose);
+                child.on("error", onError);
+                child.send(currentInput);
+            };
+
+            const restartChild = () => {
+                child.kill();
+                allChildren.delete(child);
+                startChild();
+            };
+
+            startChild();
         }
 
         function fail(): void {
-            rejected = true;
-            for (const child of allChildren) {
-                child.kill();
+            if (!rejected) {
+                rejected = true;
+                for (const child of allChildren) {
+                    child.kill();
+                }
+                reject(new Error(`Something went wrong in ${runWithListeningChildProcesses.name}`));
             }
-            reject(new Error(`Something went wrong in ${runWithListeningChildProcesses.name}`));
         }
     });
 }
