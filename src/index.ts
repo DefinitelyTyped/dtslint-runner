@@ -173,7 +173,7 @@ function logPerformance() {
     let big: Array<[string, number]> = [];
     let types: number[] = [];
     for (const filename of readdirSync(perfDir, { encoding: "utf8" })) {
-        const x = JSON.parse(readFileSync(perfDir + filename, { encoding: 'utf8' })) as { [s: string]: { typeCount: number, memory: number } };
+        const x = JSON.parse(readFileSync(joinPaths(perfDir, filename), { encoding: 'utf8' })) as { [s: string]: { typeCount: number, memory: number } };
         for (const k of Object.keys(x)) {
             big.push([k, x[k].typeCount]);
             types.push(x[k].typeCount);
