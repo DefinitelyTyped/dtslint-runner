@@ -376,7 +376,7 @@ function runWithListeningChildProcesses<In>(
             };
 
             const onClose = () => {
-                if (rejected || inputIndex === inputs.length || !runningChildren.has(child)) {
+                if (rejected || !runningChildren.has(child)) {
                     return;
                 }
 
@@ -417,8 +417,11 @@ function runWithListeningChildProcesses<In>(
                             break;
                         case CrashRecoveryState.Crashed:
                             crashRecoveryState = CrashRecoveryState.Normal;
-                            console.log(`${processIndex}> Restarting...`);
-                            restartChild(nextTask, process.execArgv);
+                            if (inputIndex === inputs.length) {
+                                stopChild(/*done*/ true);
+                            } else {
+                                restartChild(nextTask, process.execArgv);
+                            }
                             break;
                         default:
                             assert.fail(`${processIndex}> Unexpected crashRecoveryState: ${crashRecoveryState}`);
@@ -429,6 +432,7 @@ function runWithListeningChildProcesses<In>(
             };
 
             const onError = (err?: Error) => {
+                child.removeAllListeners();
                 runningChildren.delete(child);
                 fail(err);
             };
@@ -491,6 +495,7 @@ function runWithListeningChildProcesses<In>(
             const restartChild = (taskAction: () => void, execArgv: string[]) => {
                 try {
                     assert(runningChildren.has(child), `${processIndex}> Child not running`);
+                    console.log(`${processIndex}> Restarting...`);
                     stopChild(/*done*/ false);
                     startChild(taskAction, execArgv);
                 } catch (e) {
