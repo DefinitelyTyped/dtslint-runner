@@ -6,18 +6,19 @@ import { join as joinPaths } from "path";
 import { readdirSync, readFileSync } from 'fs';
 import { percentile } from 'stats-lite';
 
+const DEFAULT_CRASH_RECOVERY_MAX_OLD_SPACE_SIZE = 4096;
+
 const pathToDtsLint = require.resolve("dtslint");
 
 if (module.parent === null) { // tslint:disable-line no-null-keyword
     let clone = false;
-    let cloneSha: string | undefined = undefined;
+    let cloneSha: string | undefined;
     let noInstall = false;
     let tsLocal: string | undefined;
     let onlyTestTsNext = false;
     let expectOnly = false;
     let nProcesses = cpus().length;
-    let shardId: number | undefined = undefined;
-    let shardCount: number | undefined = undefined;
+    let shard: { id: number, count: number } | undefined;
     const { argv } = process;
     for (let i = 2; i < argv.length; i++) {
         const arg = argv[i];
@@ -28,11 +29,9 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
             case "--localTs":
                 if (i + 1 >= argv.length) {
                     throw new Error("Path for --localTs was not provided.");
-                }
-                else if (argv[i + 1].startsWith("--")) {
-                    throw new Error("Looking for local path for TS, but got " + tsLocal);
-                }
-                else {
+                } else if (argv[i + 1].startsWith("--")) {
+                    throw new Error(`Looking for local path for TS, but got ${tsLocal}`);
+                } else {
                     tsLocal = argv[i + 1];
                     i++;
                 }
@@ -61,12 +60,13 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
             case "--sharded": {
                 i++;
                 assert(i < argv.length);
-                shardId = Number.parseInt(argv[i]);
+                const shardId = Number.parseInt(argv[i]);
                 assert(!Number.isNaN(shardId));
                 i++;
                 assert(i < argv.length);
-                shardCount = Number.parseInt(argv[i]);
+                const shardCount = Number.parseInt(argv[i]);
                 assert(!Number.isNaN(shardCount));
+                shard = { id: shardId, count: shardCount };
                 break;
             }
             default:
@@ -74,7 +74,7 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         }
     }
 
-    main(cloneSha || clone, nProcesses, noInstall, onlyTestTsNext, expectOnly, tsLocal, shardId ? {id: shardId, count: shardCount!} : undefined)
+    main(cloneSha || clone, nProcesses, noInstall, onlyTestTsNext, expectOnly, tsLocal, shard)
         .then(code => {
             if (code !== 0) {
                 console.error("FAILED");
@@ -87,7 +87,9 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         });
 }
 
-async function main(clone: string | boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean, expectOnly: boolean, tsLocal: string | undefined, sharding: {id: number, count: number} | undefined): Promise<number> {
+async function main(
+    clone: string | boolean, nProcesses: number, noInstall: boolean, onlyTestTsNext: boolean, expectOnly: boolean,
+    tsLocal: string | undefined, sharding: {id: number, count: number} | undefined): Promise<number> {
     if (clone && !noInstall) {
         await remove(joinPaths(process.cwd(), "DefinitelyTyped"));
         await cloneDt(process.cwd(), typeof clone === "string" ? clone : undefined);
@@ -101,7 +103,8 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
 
     const allPackages = await getAllPackages(typesDir);
     // Don't shard in order, this way, eg `react` packages are split across all workers
-    const testedPackages = sharding ? allPackages.filter((_, i) => (i % sharding.count) === (sharding.id - 1)) : allPackages;
+    const testedPackages = sharding ? allPackages.filter((_, i) => (i % sharding.count) === (sharding.id - 1)) :
+        allPackages;
 
     if (!noInstall) {
         await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
@@ -117,23 +120,29 @@ async function main(clone: string | boolean, nProcesses: number, noInstall: bool
         nProcesses,
         cwd: typesDir,
         crashRecovery: true,
-        handleOutput(output): void {
+        handleOutput(output, processIndex): void {
+            const prefix = processIndex === undefined ? "" : `${processIndex}> `;
             const { path, status } = output as { path: string, status: string };
             if (status === "OK") {
-                console.log(`${path} OK`);
+                console.log(`${prefix}${path} OK`);
             } else {
-                console.error(`${path} failing:`);
-                console.error(status);
+                console.error(`${prefix}${path} failing:`);
+                console.error(prefix ? status.split(/\r?\n/).map(line => `${prefix}${line}`).join("\n") : status);
                 allFailures.push([path, status]);
             }
         },
-        handleCrash(input, state) {
+        handleCrash(input, state, processIndex): void {
+            const prefix = processIndex === undefined ? "" : `${processIndex}> `;
             switch (state) {
                 case CrashRecoveryState.Retry:
-                    console.log(`${input.path} Out of memory: retrying`);
+                    console.warn(`${prefix}${input.path} Out of memory: retrying`);
+                    break;
+                case CrashRecoveryState.RetryWithMoreMemory:
+                    console.warn(`${prefix}${input.path} Out of memory: retrying with increased memory (4096M)`);
                     break;
                 case CrashRecoveryState.Crashed:
-                    console.log(`${input.path} Out of memory: failed`);
+                    console.error(`${prefix}${input.path} Out of memory: failed`);
+                    allFailures.push([input.path, "Out of memory"]);
                     break;
                 default:
             }
@@ -202,25 +211,24 @@ async function installAllDependencies(
 
 async function cloneDt(cwd: string, sha: string | undefined): Promise<void> {
     if (sha) {
-        const cmd = `git init DefinitelyTyped`;
+        const cmd = "git init DefinitelyTyped";
         console.log(cmd);
         await runOrFail(cwd, cmd);
+        // tslint:disable-next-line:no-parameter-reassignment
         cwd = `${cwd}/DefinitelyTyped`;
         const commands = [
-            `git remote add origin https://github.com/DefinitelyTyped/DefinitelyTyped.git`,
-            `git fetch origin master --depth 50`, // We can't clone the commit directly, so we assume the commit is from recent history, pull down some recent commits,
-            `git checkout ${sha}` // then check it out
+            "git remote add origin https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+            "git fetch origin master --depth 50", // We can't clone the commit directly, so assume the commit is from
+            `git checkout ${sha}`,                // recent history, pull down some recent commits, then check it out
         ];
         for (const command of commands) {
             console.log(command);
             await runOrFail(cwd, command);
         }
-        return;
-    }
-    else {
-        const cmd = `git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1`;
+    } else {
+        const cmd = "git clone https://github.com/DefinitelyTyped/DefinitelyTyped.git --depth 1";
         console.log(cmd);
-        return await runOrFail(cwd, cmd);
+        await runOrFail(cwd, cmd);
     }
 }
 
@@ -303,6 +311,7 @@ function initArray<T>(length: number, makeElement: () => T): T[] {
 const enum CrashRecoveryState {
     Normal,
     Retry,
+    RetryWithMoreMemory,
     Crashed,
 }
 
@@ -313,104 +322,203 @@ interface RunWithListeningChildProcessesOptions<In> {
     readonly nProcesses: number;
     readonly cwd: string;
     readonly crashRecovery?: boolean;
-    handleOutput(output: {}): void;
-    handleCrash?(input: In, state: CrashRecoveryState): void;
+    readonly crashRecoveryMaxOldSpaceSize?: number;
+    handleOutput(output: {}, processIndex: number | undefined): void;
+    handleCrash?(input: In, state: CrashRecoveryState, processIndex: number | undefined): void;
 }
 function runWithListeningChildProcesses<In>(
     { inputs, commandLineArgs, workerFile, nProcesses, cwd, handleOutput, crashRecovery,
+      crashRecoveryMaxOldSpaceSize = DEFAULT_CRASH_RECOVERY_MAX_OLD_SPACE_SIZE,
       handleCrash }: RunWithListeningChildProcessesOptions<In>,
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         let inputIndex = 0;
         let processesLeft = nProcesses;
         let rejected = false;
-        const allChildren = new Set<ChildProcess>();
+        const runningChildren = new Set<ChildProcess>();
+        const maxOldSpaceSize = getMaxOldSpaceSize(process.execArgv) || 0;
         for (let i = 0; i < nProcesses; i++) {
             if (inputIndex === inputs.length) {
                 processesLeft--;
                 continue;
             }
 
+            const processIndex = nProcesses > 1 ? i + 1 : undefined;
             let child: ChildProcess;
             let crashRecoveryState = CrashRecoveryState.Normal;
-            let currentInput = inputs[inputIndex];
-            inputIndex++;
+            let currentInput: In;
 
             const onMessage = (outputMessage: unknown) => {
+                const oldCrashRecoveryState = crashRecoveryState;
                 crashRecoveryState = CrashRecoveryState.Normal;
-                handleOutput(outputMessage as {});
+                handleOutput(outputMessage as {}, processIndex);
                 if (inputIndex === inputs.length) {
+                    stopChild(/*done*/ true);
+                } else {
+                    if (oldCrashRecoveryState !== CrashRecoveryState.Normal) {
+                        // retry attempt succeeded, restart the child for further tests.
+                        console.log(`${processIndex}> Restarting...`);
+                        restartChild(nextTask, process.execArgv);
+                    } else {
+                        nextTask();
+                    }
+                }
+            };
+
+            const onClose = () => {
+                if (rejected || inputIndex === inputs.length || !runningChildren.has(child)) {
+                    return;
+                }
+
+                try {
+                    // treat any unhandled closures of the child as a crash
+                    if (crashRecovery) {
+                        switch (crashRecoveryState) {
+                            case CrashRecoveryState.Normal:
+                                crashRecoveryState = CrashRecoveryState.Retry;
+                                break;
+                            case CrashRecoveryState.Retry:
+                                // skip crash recovery if we're already passing a value for --max_old_space_size that
+                                // is >= crashRecoveryMaxOldSpaceSize
+                                crashRecoveryState = maxOldSpaceSize < crashRecoveryMaxOldSpaceSize
+                                    ? CrashRecoveryState.RetryWithMoreMemory
+                                    : crashRecoveryState = CrashRecoveryState.Crashed;
+                                break;
+                            default:
+                                crashRecoveryState = CrashRecoveryState.Crashed;
+                        }
+                    } else {
+                        crashRecoveryState = CrashRecoveryState.Crashed;
+                    }
+
+                    if (handleCrash) {
+                        handleCrash(currentInput, crashRecoveryState, processIndex);
+                    }
+
+                    switch (crashRecoveryState) {
+                        case CrashRecoveryState.Retry:
+                            restartChild(resumeTask, process.execArgv);
+                            break;
+                        case CrashRecoveryState.RetryWithMoreMemory:
+                            restartChild(resumeTask, [
+                                ...getExecArgvWithoutMaxOldSpaceSize(),
+                                `--max_old_space_size=${crashRecoveryMaxOldSpaceSize}`,
+                            ]);
+                            break;
+                        case CrashRecoveryState.Crashed:
+                            crashRecoveryState = CrashRecoveryState.Normal;
+                            console.log(`${processIndex}> Restarting...`);
+                            restartChild(nextTask, process.execArgv);
+                            break;
+                        default:
+                            assert.fail(`${processIndex}> Unexpected crashRecoveryState: ${crashRecoveryState}`);
+                    }
+                } catch (e) {
+                    onError(e);
+                }
+            };
+
+            const onError = (err?: Error) => {
+                runningChildren.delete(child);
+                fail(err);
+            };
+
+            const startChild = (taskAction: () => void, execArgv: string[]) => {
+                child = fork(workerFile, commandLineArgs, { cwd, execArgv });
+                runningChildren.add(child);
+                child.on("message", onMessage);
+                child.on("close", onClose);
+                child.on("error", onError);
+                taskAction();
+            };
+
+            const stopChild = (done: boolean) => {
+                assert(runningChildren.has(child), `${processIndex}> Child not running`);
+                if (done) {
                     processesLeft--;
                     if (processesLeft === 0) {
                         resolve();
                     }
-                    child.kill();
-                } else {
-                    currentInput = inputs[inputIndex];
-                    inputIndex++;
-                    child.send(currentInput);
                 }
+                runningChildren.delete(child);
+                child.removeAllListeners();
+                child.kill();
             };
 
-            const onClose = (code: number, signal: string) => {
-                if (rejected || inputIndex === inputs.length) {
-                    return;
-                }
-
-                if (crashRecovery && code && !signal) {
-                    switch (crashRecoveryState) {
-                        case CrashRecoveryState.Normal:
-                            crashRecoveryState = CrashRecoveryState.Retry;
-                            if (handleCrash) {
-                                handleCrash(currentInput, crashRecoveryState);
-                            }
-                            restartChild();
-                            return;
-                        case CrashRecoveryState.Retry:
-                            crashRecoveryState = CrashRecoveryState.Crashed;
-                            if (handleCrash) {
-                                handleCrash(currentInput, crashRecoveryState);
-                            }
-                            break;
-                        default:
-                    }
-                } else if (handleCrash) {
-                    handleCrash(currentInput, CrashRecoveryState.Crashed);
-                }
-
-                fail();
+            const restartChild = (taskAction: () => void, execArgv: string[]) => {
+                assert(runningChildren.has(child), `${processIndex}> Child not running`);
+                stopChild(/*done*/ false);
+                startChild(taskAction, execArgv);
             };
 
-            const onError = () => {
-                fail();
-            };
-
-            const startChild = () => {
-                child = fork(workerFile, commandLineArgs, { cwd });
-                allChildren.add(child);
-                child.on("message", onMessage);
-                child.on("close", onClose);
-                child.on("error", onError);
+            const resumeTask = () => {
+                assert(runningChildren.has(child), `${processIndex}> Child not running`);
                 child.send(currentInput);
             };
 
-            const restartChild = () => {
-                child.kill();
-                allChildren.delete(child);
-                startChild();
+            const nextTask = () => {
+                assert(runningChildren.has(child), `${processIndex}> Child not running`);
+                currentInput = inputs[inputIndex];
+                inputIndex++;
+                child.send(currentInput);
             };
 
-            startChild();
+            startChild(nextTask, process.execArgv);
         }
 
-        function fail(): void {
+        function fail(err?: Error): void {
             if (!rejected) {
                 rejected = true;
-                for (const child of allChildren) {
+                for (const child of runningChildren) {
+                    child.removeAllListeners();
                     child.kill();
                 }
-                reject(new Error(`Something went wrong in ${runWithListeningChildProcesses.name}`));
+                const message = err ? `: ${err.message}` : "";
+                reject(new Error(`Something went wrong in ${runWithListeningChildProcesses.name}${message}`));
             }
         }
     });
+}
+
+const maxOldSpaceSizeRegExp = /^--max[-_]old[-_]space[-_]size(?:$|=(\d+))/;
+
+interface MaxOldSpaceSizeArgument {
+    index: number;
+    size: number;
+    value: number | undefined;
+}
+
+function getMaxOldSpaceSizeArg(argv: ReadonlyArray<string>): MaxOldSpaceSizeArgument | undefined {
+    for (let index = 0; index < argv.length; index++) {
+        const match = maxOldSpaceSizeRegExp.exec(argv[index]);
+        if (match) {
+            const value = match[1] ? parseInt(match[1], 10) :
+                argv[index + 1] ? parseInt(argv[index + 1], 10) :
+                undefined;
+            const size = match[1] ? 1 : 2; // tslint:disable-line:no-magic-numbers
+            return { index, size, value };
+        }
+    }
+    return undefined;
+}
+
+function getMaxOldSpaceSize(argv: ReadonlyArray<string>): number | undefined {
+    const arg = getMaxOldSpaceSizeArg(argv);
+    return arg && arg.value;
+}
+
+let execArgvWithoutMaxOldSpaceSize: ReadonlyArray<string> | undefined;
+
+function getExecArgvWithoutMaxOldSpaceSize(): ReadonlyArray<string> {
+    if (!execArgvWithoutMaxOldSpaceSize) {
+        // remove --max_old_space_size from execArgv
+        const execArgv = process.execArgv.slice();
+        let maxOldSpaceSizeArg = getMaxOldSpaceSizeArg(execArgv);
+        while (maxOldSpaceSizeArg) {
+            execArgv.splice(maxOldSpaceSizeArg.index, maxOldSpaceSizeArg.size);
+            maxOldSpaceSizeArg = getMaxOldSpaceSizeArg(execArgv);
+        }
+        execArgvWithoutMaxOldSpaceSize = execArgv;
+    }
+    return execArgvWithoutMaxOldSpaceSize;
 }
