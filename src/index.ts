@@ -1,7 +1,7 @@
 import assert = require("assert");
 import { ChildProcess, exec, fork } from "child_process";
 import { pathExists, readdir, remove } from "fs-extra";
-import { cpus } from "os";
+import { cpus, homedir } from "os";
 import { join as joinPaths } from "path";
 import { readdirSync, readFileSync } from 'fs';
 import { percentile } from 'stats-lite';
@@ -9,6 +9,7 @@ import { percentile } from 'stats-lite';
 const DEFAULT_CRASH_RECOVERY_MAX_OLD_SPACE_SIZE = 4096;
 
 const pathToDtsLint = require.resolve("dtslint");
+const perfDir = joinPaths(homedir(), ".dts", "perf");
 
 if (module.parent === null) { // tslint:disable-line no-null-keyword
     let clone = false;
@@ -149,11 +150,11 @@ async function main(
         },
     });
 
+    logPerformance();
+
     if (allFailures.length === 0) {
         return 0;
     }
-
-    logPerformance();
 
     console.error("\n\n=== ERRORS ===\n");
 
@@ -171,8 +172,8 @@ function logPerformance() {
     console.log("\n\n=== PERFORMANCE ===\n");
     let big: Array<[string, number]> = [];
     let types: number[] = [];
-    for (const filename of readdirSync('/home/nathansa/.dts/perf/', { encoding: "utf8" })) {
-        const x = JSON.parse(readFileSync('/home/nathansa/.dts/perf/' + filename, { encoding: 'utf8' })) as { [s: string]: { typeCount: number, memory: number } };
+    for (const filename of readdirSync(perfDir, { encoding: "utf8" })) {
+        const x = JSON.parse(readFileSync(perfDir + filename, { encoding: 'utf8' })) as { [s: string]: { typeCount: number, memory: number } };
         for (const k of Object.keys(x)) {
             big.push([k, x[k].typeCount]);
             types.push(x[k].typeCount);
