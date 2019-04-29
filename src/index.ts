@@ -121,6 +121,7 @@ async function main(
         nProcesses,
         cwd: typesDir,
         crashRecovery: true,
+        crashRecoveryMaxOldSpaceSize: 0, // disable retry with more memory
         handleStart(input, processIndex): void {
             const prefix = processIndex === undefined ? "" : `${processIndex}> `;
             console.log(`${prefix}${input.path} START`);
