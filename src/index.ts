@@ -109,7 +109,7 @@ async function main(
 
     if (!noInstall) {
         await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
-        await installAllDependencies(nProcesses, typesDir, allPackages);
+        await installAllDependencies(typesDir, allPackages);
     }
 
     const allFailures: Array<[string, string]> = [];
@@ -199,20 +199,19 @@ function logPerformance() {
  * This ensures that if `types/aaa` depends on `types/zzz`, `types/zzz`'s dependencies will already be installed.
  */
 async function installAllDependencies(
-    nProcesses: number,
     typesDir: string,
     packages: ReadonlyArray<string>,
 ): Promise<void> {
-    await nAtATime(nProcesses, packages, async packageName => {
+    for (const packageName of packages) {
         const packagePath = joinPaths(typesDir, packageName);
         if (!await pathExists(joinPaths(packagePath, "package.json"))) {
-            return;
+            continue;
         }
 
         const cmd = "npm install --ignore-scripts --no-shrinkwrap --no-package-lock --no-bin-links";
         console.log(`  ${packagePath}: ${cmd}`);
         await runOrFail(packagePath, cmd);
-    });
+    }
 }
 
 async function cloneDt(cwd: string, sha: string | undefined): Promise<void> {
