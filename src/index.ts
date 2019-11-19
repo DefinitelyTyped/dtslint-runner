@@ -106,6 +106,7 @@ async function main(
     // Don't shard in order, this way, eg `react` packages are split across all workers
     const testedPackages = sharding ? allPackages.filter((_, i) => (i % sharding.count) === (sharding.id - 1)) :
         allPackages;
+    const expectedFailures = new Set((readFileSync("expectedFailures.txt", "utf8") as string).split("\n").filter(Boolean).map(s => s.trim()));
 
     if (!noInstall) {
         await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
@@ -129,7 +130,15 @@ async function main(
         handleOutput(output, processIndex): void {
             const prefix = processIndex === undefined ? "" : `${processIndex}> `;
             const { path, status } = output as { path: string, status: string };
-            if (status === "OK") {
+            if (expectedFailures.has(path)) {
+                if (status === "OK") {
+                    console.error(`${prefix}${path} passed, but was expected to fail.`);
+                    allFailures.push([path, status]);
+                } else {
+                    console.error(`${prefix}${path} failed as expected:`);
+                    console.error(prefix ? status.split(/\r?\n/).map(line => `${prefix}${line}`).join("\n") : status);
+                }
+            } else if (status === "OK") {
                 console.log(`${prefix}${path} OK`);
             } else {
                 console.error(`${prefix}${path} failing:`);
