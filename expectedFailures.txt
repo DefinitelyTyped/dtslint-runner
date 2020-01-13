@@ -1,1 +1,5 @@
 protractor-browser-logs
+electron-localshortcut
+electron-prompt
+electron-window-state
+electron-spellchecker
