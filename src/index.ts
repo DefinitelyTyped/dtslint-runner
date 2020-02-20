@@ -3,7 +3,7 @@ import { ChildProcess, exec, fork } from "child_process";
 import { pathExists, readdir, remove } from "fs-extra";
 import { cpus, homedir } from "os";
 import { join as joinPaths } from "path";
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync } from 'fs';
 import { percentile } from 'stats-lite';
 
 const DEFAULT_CRASH_RECOVERY_MAX_OLD_SPACE_SIZE = 4096;
@@ -11,7 +11,15 @@ const DEFAULT_CRASH_RECOVERY_MAX_OLD_SPACE_SIZE = 4096;
 const pathToDtsLint = require.resolve("dtslint");
 const perfDir = joinPaths(homedir(), ".dts", "perf");
 
+function modifyNpmNaming() {
+    const tsconfigPath = joinPaths(pathToDtsLint, "../../dt.json");
+    const tsconfig = JSON.parse(readFileSync(tsconfigPath, { encoding: "utf8" }));
+    tsconfig.rules["npm-naming"] = [true, { "mode": "code" }];
+    writeFileSync(tsconfigPath, JSON.stringify(tsconfig, undefined, 4), { encoding: "utf8", flag: "w" });
+}
+
 if (module.parent === null) { // tslint:disable-line no-null-keyword
+    modifyNpmNaming();
     let clone = false;
     let cloneSha: string | undefined;
     let noInstall = false;
