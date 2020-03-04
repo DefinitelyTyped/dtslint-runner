@@ -106,7 +106,7 @@ async function main(
     // Don't shard in order, this way, eg `react` packages are split across all workers
     const testedPackages = sharding ? allPackages.filter((_, i) => (i % sharding.count) === (sharding.id - 1)) :
         allPackages;
-    const expectedFailures = new Set((readFileSync("expectedFailures.txt", "utf8") as string).split("\n").filter(Boolean).map(s => s.trim()));
+    const expectedFailures = new Set((readFileSync(joinPaths(__dirname, "../expectedFailures.txt"), "utf8") as string).split("\n").filter(Boolean).map(s => s.trim()));
 
     if (!noInstall) {
         await runOrFail(/*cwd*/ undefined, `node ${pathToDtsLint} --installAll`);
