@@ -1,5 +1,5 @@
 import assert = require("assert");
-import { ChildProcess, exec, fork } from "child_process";
+import { ChildProcess, exec, fork, execSync } from "child_process";
 import { pathExists, readdir, remove } from "fs-extra";
 import { cpus, homedir } from "os";
 import { join as joinPaths } from "path";
@@ -140,6 +140,7 @@ async function main(
                 }
             } else if (status === "OK") {
                 console.log(`${prefix}${path} OK`);
+                console.log(execSync('df -h').toString());
             } else {
                 console.error(`${prefix}${path} failing:`);
                 console.error(prefix ? status.split(/\r?\n/).map(line => `${prefix}${line}`).join("\n") : status);
