@@ -75,6 +75,9 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         }
     }
 
+    console.log(execSync('df -h').toString())
+    console.log()
+
     main(cloneSha || clone, nProcesses, noInstall, onlyTestTsNext, expectOnly, tsLocal, shard)
         .then(code => {
             if (code !== 0) {
@@ -212,8 +215,6 @@ async function installAllDependencies(
     typesDir: string,
     packages: ReadonlyArray<string>,
 ): Promise<void> {
-    console.log(execSync('df -h').toString())
-    console.log()
     for (const packageName of packages) {
         const packagePath = joinPaths(typesDir, packageName);
         if (!await pathExists(joinPaths(packagePath, "package.json"))) {
