@@ -212,7 +212,8 @@ async function installAllDependencies(
     typesDir: string,
     packages: ReadonlyArray<string>,
 ): Promise<void> {
-    console.log(execSync('df -h /dev/sda1').toString())
+    console.log(execSync('df -h').toString())
+    console.log()
     for (const packageName of packages) {
         const packagePath = joinPaths(typesDir, packageName);
         if (!await pathExists(joinPaths(packagePath, "package.json"))) {
