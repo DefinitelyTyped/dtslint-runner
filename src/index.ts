@@ -140,7 +140,7 @@ async function main(
                 }
             } else if (status === "OK") {
                 console.log(`${prefix}${path} OK`);
-                console.log(execSync('df -h').toString());
+                console.log(execSync('df -h /dev/sda1').toString());
             } else {
                 console.error(`${prefix}${path} failing:`);
                 console.error(prefix ? status.split(/\r?\n/).map(line => `${prefix}${line}`).join("\n") : status);
@@ -212,6 +212,7 @@ async function installAllDependencies(
     typesDir: string,
     packages: ReadonlyArray<string>,
 ): Promise<void> {
+    console.log(execSync('df -h /dev/sda1').toString())
     for (const packageName of packages) {
         const packagePath = joinPaths(typesDir, packageName);
         if (!await pathExists(joinPaths(packagePath, "package.json"))) {
