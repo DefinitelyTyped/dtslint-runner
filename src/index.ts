@@ -1,5 +1,5 @@
 import assert = require("assert");
-import { ChildProcess, exec, fork, execSync } from "child_process";
+import { ChildProcess, exec, fork } from "child_process";
 import { pathExists, readdir, remove } from "fs-extra";
 import { cpus, homedir } from "os";
 import { join as joinPaths } from "path";
