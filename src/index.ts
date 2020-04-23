@@ -75,9 +75,6 @@ if (module.parent === null) { // tslint:disable-line no-null-keyword
         }
     }
 
-    console.log(execSync('df -h /').toString())
-    console.log()
-
     main(cloneSha || clone, nProcesses, noInstall, onlyTestTsNext, expectOnly, tsLocal, shard)
         .then(code => {
             if (code !== 0) {
@@ -143,7 +140,6 @@ async function main(
                 }
             } else if (status === "OK") {
                 console.log(`${prefix}${path} OK`);
-                console.log(execSync('df -h /').toString());
             } else {
                 console.error(`${prefix}${path} failing:`);
                 console.error(prefix ? status.split(/\r?\n/).map(line => `${prefix}${line}`).join("\n") : status);
